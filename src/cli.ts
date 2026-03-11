@@ -1,0 +1,193 @@
+import { analyzePaths } from './analyzer';
+import { DARK_PATTERN_RULES } from './rules';
+import type { ScanSummary } from './types';
+
+export type OutputFormat = 'github' | 'json' | 'text';
+
+export interface CliIo {
+  stdout(message: string): void;
+  stderr(message: string): void;
+}
+
+interface ParsedArgs {
+  format: OutputFormat;
+  paths: string[];
+  ruleIds?: string[];
+  showHelp: boolean;
+  listRules: boolean;
+}
+
+const HELP_TEXT = `Usage: anti-dark-pattern [options] <path ...>
+
+Options:
+  --format <text|json|github>  Choose output format (default: text)
+  --rules <id,id>              Restrict analysis to specific rule IDs
+  --list-rules                 Print the available rule catalog
+  --help                       Show this help message
+`;
+
+export async function runCli(
+  argv: readonly string[],
+  io: CliIo = defaultCliIo(),
+): Promise<number> {
+  let parsedArgs: ParsedArgs;
+
+  try {
+    parsedArgs = parseArgs(argv);
+  } catch (error) {
+    io.stderr(`${String(error)}\n`);
+    io.stderr(HELP_TEXT);
+    return 2;
+  }
+
+  if (parsedArgs.showHelp) {
+    io.stdout(HELP_TEXT);
+    return 0;
+  }
+
+  if (parsedArgs.listRules) {
+    for (const rule of DARK_PATTERN_RULES) {
+      io.stdout(`${rule.id}: ${rule.title}\n`);
+    }
+    return 0;
+  }
+
+  try {
+    const summary = await analyzePaths({
+      paths: parsedArgs.paths.length > 0 ? parsedArgs.paths : ['.'],
+      ruleIds: parsedArgs.ruleIds,
+    });
+
+    writeSummary(summary, parsedArgs.format, io);
+    return summary.findings.length > 0 ? 1 : 0;
+  } catch (error) {
+    io.stderr(`${String(error)}\n`);
+    return 2;
+  }
+}
+
+function parseArgs(argv: readonly string[]): ParsedArgs {
+  const parsedArgs: ParsedArgs = {
+    format: 'text',
+    paths: [],
+    showHelp: false,
+    listRules: false,
+  };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+
+    if (argument === '--help') {
+      parsedArgs.showHelp = true;
+      continue;
+    }
+
+    if (argument === '--list-rules') {
+      parsedArgs.listRules = true;
+      continue;
+    }
+
+    if (argument === '--format') {
+      index += 1;
+      parsedArgs.format = parseFormat(argv[index]);
+      continue;
+    }
+
+    if (argument.startsWith('--format=')) {
+      parsedArgs.format = parseFormat(argument.slice('--format='.length));
+      continue;
+    }
+
+    if (argument === '--rules') {
+      index += 1;
+      parsedArgs.ruleIds = parseRuleIds(argv[index]);
+      continue;
+    }
+
+    if (argument.startsWith('--rules=')) {
+      parsedArgs.ruleIds = parseRuleIds(argument.slice('--rules='.length));
+      continue;
+    }
+
+    if (argument.startsWith('--')) {
+      throw new Error(`Unknown option: ${argument}`);
+    }
+
+    parsedArgs.paths.push(argument);
+  }
+
+  return parsedArgs;
+}
+
+function parseFormat(format: string | undefined): OutputFormat {
+  if (format === 'text' || format === 'json' || format === 'github') {
+    return format;
+  }
+
+  throw new Error(`Unsupported format: ${String(format)}`);
+}
+
+function parseRuleIds(ruleList: string | undefined): string[] {
+  if (!ruleList) {
+    throw new Error('Missing value for --rules');
+  }
+
+  return ruleList
+    .split(',')
+    .map((ruleId) => ruleId.trim())
+    .filter(Boolean);
+}
+
+function writeSummary(summary: ScanSummary, format: OutputFormat, io: CliIo): void {
+  if (format === 'json') {
+    io.stdout(`${JSON.stringify(summary, null, 2)}\n`);
+    return;
+  }
+
+  if (format === 'github') {
+    if (summary.findings.length === 0) {
+      io.stdout(
+        `::notice::Scanned ${summary.fileCount} file(s) and found no dark patterns.\n`,
+      );
+      return;
+    }
+
+    for (const finding of summary.findings) {
+      io.stdout(
+        `::${finding.severity} file=${escapeProperty(finding.filePath)},line=${finding.line},col=${finding.column},title=${escapeProperty(finding.ruleId)}::${escapeMessage(finding.message)} Recommendation: ${escapeMessage(finding.recommendation)}\n`,
+      );
+    }
+
+    return;
+  }
+
+  if (summary.findings.length === 0) {
+    io.stdout(`Scanned ${summary.fileCount} file(s) and found no dark patterns.\n`);
+    return;
+  }
+
+  io.stdout(
+    `Scanned ${summary.fileCount} file(s) and found ${summary.findings.length} potential dark pattern(s).\n\n`,
+  );
+
+  for (const finding of summary.findings) {
+    io.stdout(
+      `[${finding.severity}] ${finding.ruleId}\n${finding.filePath}:${finding.line}:${finding.column}\n${finding.message}\nRecommendation: ${finding.recommendation}\nEvidence: ${finding.evidence}\n\n`,
+    );
+  }
+}
+
+function escapeProperty(value: string): string {
+  return value.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+}
+
+function escapeMessage(value: string): string {
+  return escapeProperty(value).replace(/:/g, '%3A').replace(/,/g, '%2C');
+}
+
+function defaultCliIo(): CliIo {
+  return {
+    stdout: (message) => process.stdout.write(message),
+    stderr: (message) => process.stderr.write(message),
+  };
+}
