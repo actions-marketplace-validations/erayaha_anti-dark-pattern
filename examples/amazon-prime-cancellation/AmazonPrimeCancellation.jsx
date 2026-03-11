@@ -1,10 +1,13 @@
 /**
+ * EXAMPLE FILE — FOR DARK PATTERN DETECTION TESTING ONLY
  * DARK PATTERN CASE #1: Amazon Prime "Iliad Flow" Cancellation
  * ─────────────────────────────────────────────────────────────
  * Legal Action  : FTC v. Amazon.com, Inc. (2023) → $2.5B settlement (Sep 2025)
  * Pattern Types : confirm-shaming, roach-motel, misdirection, forced-continuity
  * Source        : FTC Complaint — CIV-23-0932 | ftc.gov/news-events/news/press-releases/2023/06
- *
+ * This is a reconstructed illustration of the anti-pattern documented in
+ * FTC v. Amazon (2023) and is not affiliated with or endorsed by Amazon.
+ * No Amazon code, assets, or proprietary material is used.
  * Dark Patterns annotated with: [DP: <type>] comments
  */
 
