@@ -283,6 +283,20 @@ describe('runCli', () => {
     expect(capture.stdout.join('')).toContain('found no dark patterns');
   });
 
+  it('supports the scan subcommand', async () => {
+    const filePath = createProjectFile(
+      'checkout.html',
+      '<button>No thanks, I hate saving money</button>',
+    );
+    const capture = createIoCapture();
+
+    const exitCode = await runCli(['scan', filePath, '--format', 'json'], capture.io);
+    const summary = JSON.parse(capture.stdout.join('')) as { findings: Array<{ ruleId: string }> };
+
+    expect(exitCode).toBe(1);
+    expect(summary.findings[0]?.ruleId).toBe('confirm-shaming');
+  });
+
   it('uses the default CLI IO when none is provided', async () => {
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 

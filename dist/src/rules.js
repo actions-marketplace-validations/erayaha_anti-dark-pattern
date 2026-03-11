@@ -24,8 +24,12 @@ exports.DARK_PATTERN_RULES = [
         recommendation: 'Replace guilt-based copy with neutral opt-in and opt-out language.',
         regexes: [
             {
-                pattern: /no thanks,?\s*i\s+(hate|prefer to miss|love paying|don'?t care about|do not care about)[^<\n]*/gi,
+                pattern: /no thanks,?\s*i\s+(hate|prefer to miss|love paying|don'?t care about|do not care about|don'?t want)[^<\n]*/gi,
                 message: 'Detected opt-out copy that attempts to shame the user into accepting.',
+            },
+            {
+                pattern: /cancel\b[^<\n]{0,60}\band\s+lose\s+all\b/gi,
+                message: 'Detected cancellation copy framed as losing benefits, which attempts to shame the user.',
             },
         ],
     }),
@@ -65,6 +69,35 @@ exports.DARK_PATTERN_RULES = [
             },
         ],
     }),
+    keywordRule({
+        id: 'roach-motel',
+        title: 'Roach-motel cancellation barrier',
+        description: 'Flags copy patterns that gate cancellation behind mandatory surveys or multi-step friction.',
+        recommendation: 'Ensure cancellation requires no more steps than sign-up, with no mandatory surveys.',
+        regexes: [
+            {
+                pattern: /before you go[^<\n]*tell us why[^<\n]*(leaving|cancell)/gi,
+                message: 'Detected a required survey placed before the cancellation action.',
+            },
+        ],
+    }),
+    {
+        id: 'trick-question',
+        title: 'Pre-selected or read-only opt-in',
+        description: 'Flags checkboxes that are pre-checked and set read-only, preventing users from changing their selection.',
+        severity: 'error',
+        recommendation: 'Default all opt-in choices to unchecked and require explicit user selection. Never make checkboxes read-only.',
+        detect(content, filePath) {
+            const findings = [];
+            // Detect read-only pre-checked checkboxes spanning multiple lines (JSX pattern).
+            // A readOnly checkbox is presented as a fixed, non-interactive pre-selected choice.
+            const readOnlyCheckboxPattern = /<input[\s\S]{0,300}type\s*=\s*["']checkbox["'][\s\S]{0,300}readOnly[\s\S]{0,100}\/>/gi;
+            for (const match of content.matchAll(readOnlyCheckboxPattern)) {
+                findings.push((0, utils_1.createFinding)(this, filePath, content, match.index ?? 0, match[0], 'Detected a read-only pre-checked checkbox that prevents users from opting out.'));
+            }
+            return findings;
+        },
+    },
     {
         id: 'obstructive-consent',
         title: 'Obstructive consent UI',
