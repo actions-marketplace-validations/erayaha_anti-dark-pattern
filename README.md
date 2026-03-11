@@ -14,7 +14,7 @@ For a project like this, badges are most useful when they communicate trust, mai
 
 ### Badges that can be included right now
 
-These already work for `/home/runner/work/anti-dark-pattern/anti-dark-pattern` without adding any new infrastructure.
+These already work for this repository without adding any new infrastructure.
 
 | Badge | Why it fits this project | Source | Example snippet |
 | --- | --- | --- | --- |
@@ -75,7 +75,7 @@ If you want a concise and useful badge row today, this is a strong default:
 For this specific project, the highest-value follow-up badges are:
 
 1. **License badge** by adding a `LICENSE` file.
-2. **npm version + downloads badges** once `/home/runner/work/anti-dark-pattern/anti-dark-pattern/package.json` is published.
+2. **npm version + downloads badges** once the package is published.
 3. **Coverage badge** by wiring coverage uploads to Codecov or Coveralls.
 4. **Security posture badge** via OpenSSF Scorecard and/or a published CodeQL status badge.
 
