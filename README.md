@@ -51,6 +51,8 @@ Common options:
 node dist/src/index.js ./src --format text
 node dist/src/index.js ./src --format json
 node dist/src/index.js ./src --format github
+MODELS_TOKEN=... node dist/src/index.js ./src --model github
+MODELS_TOKEN=... node dist/src/index.js ./src --model github --github-model openai/gpt-5-mini
 node dist/src/index.js ./src --rules hidden-costs,obstructive-consent
 node dist/src/index.js --list-rules
 ```
@@ -101,7 +103,9 @@ jobs:
 
 ## LLM-ready architecture
 
-The default engine is fully deterministic so tests can run end to end without network access or human review. If you want model-based classification, implement the `PromptDrivenModel` interface from `/src/engine.ts` and pass a `ModelBackedAnalysisEngine` into `analyzePaths()`.
+The default engine is fully deterministic so tests can run end to end without network access or human review. If you want model-based classification, the CLI now supports GitHub Models directly with `--model github` and a `MODELS_TOKEN` environment variable.
+
+If you want a different provider, implement the `PromptDrivenModel` interface from `/src/engine.ts` and pass a `ModelBackedAnalysisEngine` into `analyzePaths()`.
 
 That design keeps CI reproducible while still supporting GitHub Models, Copilot, OpenAI-compatible endpoints, or any other LLM provider in production environments.
 

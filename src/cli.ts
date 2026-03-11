@@ -1,6 +1,8 @@
 import { analyzePaths } from './analyzer';
+import { ModelBackedAnalysisEngine } from './engine';
+import { GitHubModelsPromptModel } from './github-models';
 import { DARK_PATTERN_RULES } from './rules';
-import type { ScanSummary } from './types';
+import type { AnalysisEngine, ScanSummary } from './types';
 
 export type OutputFormat = 'github' | 'json' | 'text';
 
@@ -11,6 +13,8 @@ export interface CliIo {
 
 interface ParsedArgs {
   format: OutputFormat;
+  model?: 'github';
+  githubModel?: string;
   paths: string[];
   ruleIds?: string[];
   showHelp: boolean;
@@ -21,6 +25,8 @@ const HELP_TEXT = `Usage: anti-dark-pattern [options] <path ...>
 
 Options:
   --format <text|json|github>  Choose output format (default: text)
+  --model <github>             Use an optional AI-backed analysis model
+  --github-model <model-id>    Override the GitHub Models model ID
   --rules <id,id>              Restrict analysis to specific rule IDs
   --list-rules                 Print the available rule catalog
   --help                       Show this help message
@@ -53,7 +59,9 @@ export async function runCli(
   }
 
   try {
+    const engine = createAnalysisEngine(parsedArgs);
     const summary = await analyzePaths({
+      engine,
       paths: parsedArgs.paths.length > 0 ? parsedArgs.paths : ['.'],
       ruleIds: parsedArgs.ruleIds,
     });
@@ -98,6 +106,31 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
       continue;
     }
 
+    if (argument === '--model') {
+      index += 1;
+      parsedArgs.model = parseModel(argv[index]);
+      continue;
+    }
+
+    if (argument.startsWith('--model=')) {
+      parsedArgs.model = parseModel(argument.slice('--model='.length));
+      continue;
+    }
+
+    if (argument === '--github-model') {
+      index += 1;
+      parsedArgs.githubModel = parseRequiredValue('--github-model', argv[index]);
+      continue;
+    }
+
+    if (argument.startsWith('--github-model=')) {
+      parsedArgs.githubModel = parseRequiredValue(
+        '--github-model',
+        argument.slice('--github-model='.length),
+      );
+      continue;
+    }
+
     if (argument === '--rules') {
       index += 1;
       parsedArgs.ruleIds = parseRuleIds(argv[index]);
@@ -127,15 +160,45 @@ function parseFormat(format: string | undefined): OutputFormat {
   throw new Error(`Unsupported format: ${String(format)}`);
 }
 
-function parseRuleIds(ruleList: string | undefined): string[] {
-  if (!ruleList) {
-    throw new Error('Missing value for --rules');
+function parseModel(model: string | undefined): 'github' {
+  if (model === 'github') {
+    return model;
   }
 
-  return ruleList
+  throw new Error(`Unsupported model: ${String(model)}`);
+}
+
+function parseRuleIds(ruleList: string | undefined): string[] {
+  return parseRequiredValue('--rules', ruleList)
     .split(',')
     .map((ruleId) => ruleId.trim())
     .filter(Boolean);
+}
+
+function parseRequiredValue(optionName: string, value: string | undefined): string {
+  if (!value) {
+    throw new Error(`Missing value for ${optionName}`);
+  }
+
+  return value;
+}
+
+function createAnalysisEngine(parsedArgs: ParsedArgs): AnalysisEngine | undefined {
+  if (!parsedArgs.model) {
+    return undefined;
+  }
+
+  const token = process.env.MODELS_TOKEN;
+  if (!token) {
+    throw new Error('Missing MODELS_TOKEN environment variable for --model github');
+  }
+
+  return new ModelBackedAnalysisEngine(
+    new GitHubModelsPromptModel({
+      token,
+      model: parsedArgs.githubModel ?? process.env.GITHUB_MODELS_MODEL,
+    }),
+  );
 }
 
 function writeSummary(summary: ScanSummary, format: OutputFormat, io: CliIo): void {

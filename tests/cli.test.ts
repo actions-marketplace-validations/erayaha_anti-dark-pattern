@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { runCli } from '../src/cli';
 
@@ -15,6 +15,11 @@ afterEach(() => {
       rmSync(directory, { force: true, recursive: true });
     }
   }
+
+  delete process.env.MODELS_TOKEN;
+  delete process.env.GITHUB_MODELS_MODEL;
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 function createProjectFile(filename: string, content: string): string {
@@ -144,6 +149,59 @@ describe('runCli', () => {
     expect(missingRuleValue.stderr.join('')).toContain('Missing value for --rules');
     expect(missingFileExitCode).toBe(2);
     expect(missingFile.stderr.join('')).toContain('ENOENT');
+  });
+
+  it('uses GitHub Models when requested through the CLI', async () => {
+    const filePath = createProjectFile(
+      'checkout.html',
+      '<button>No thanks, I hate saving money</button>',
+    );
+    const capture = createIoCapture();
+
+    process.env.MODELS_TOKEN = 'test-token';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify([
+                  {
+                    ruleId: 'confirm-shaming',
+                    message: 'LLM detected manipulative opt-out copy.',
+                    evidence: 'No thanks, I hate saving money',
+                  },
+                ]),
+              },
+            },
+          ],
+        }),
+        status: 200,
+      })),
+    );
+
+    const exitCode = await runCli([filePath, '--model', 'github'], capture.io);
+
+    expect(exitCode).toBe(1);
+    expect(capture.stdout.join('')).toContain('[error] confirm-shaming');
+    expect(capture.stdout.join('')).toContain('LLM detected manipulative opt-out copy.');
+  });
+
+  it('reports missing GitHub Models credentials', async () => {
+    const filePath = createProjectFile(
+      'checkout.html',
+      '<button>No thanks, I hate saving money</button>',
+    );
+    const capture = createIoCapture();
+
+    const exitCode = await runCli([filePath, '--model', 'github'], capture.io);
+
+    expect(exitCode).toBe(2);
+    expect(capture.stderr.join('')).toContain(
+      'Missing MODELS_TOKEN environment variable for --model github',
+    );
   });
 
   it('returns success when no patterns are found', async () => {
