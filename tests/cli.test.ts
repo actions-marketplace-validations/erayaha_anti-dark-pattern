@@ -151,6 +151,55 @@ describe('runCli', () => {
     expect(missingFile.stderr.join('')).toContain('ENOENT');
   });
 
+  it('supports equals-style model, rule, and GitHub model options', async () => {
+    const filePath = createProjectFile(
+      'checkout.html',
+      '<button>No thanks, I hate saving money</button>',
+    );
+    const capture = createIoCapture();
+    let requestBody = '';
+
+    process.env.MODELS_TOKEN = 'test-token';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (...args: unknown[]) => {
+        requestBody = String((args[1] as RequestInit | undefined)?.body ?? '');
+
+        return {
+          ok: true,
+          json: async () => ({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify([
+                    {
+                      ruleId: 'confirm-shaming',
+                      message: 'LLM detected manipulative opt-out copy.',
+                      evidence: 'No thanks, I hate saving money',
+                    },
+                  ]),
+                },
+              },
+            ],
+          }),
+          status: 200,
+        };
+      }),
+    );
+
+    const exitCode = await runCli(
+      [filePath, '--model=github', '--github-model=openai/gpt-4.1-mini', '--rules=confirm-shaming'],
+      capture.io,
+    );
+
+    expect(exitCode).toBe(1);
+    expect(JSON.parse(requestBody)).toMatchObject({
+      model: 'openai/gpt-4.1-mini',
+    });
+    expect(capture.stdout.join('')).toContain('[error] confirm-shaming');
+    expect(capture.stdout.join('')).not.toContain('hidden-costs');
+  });
+
   it('uses GitHub Models when requested through the CLI', async () => {
     const filePath = createProjectFile(
       'checkout.html',
@@ -204,6 +253,23 @@ describe('runCli', () => {
     );
   });
 
+  it('reports unsupported model values, missing GitHub model names, and unknown options', async () => {
+    const unsupportedModel = createIoCapture();
+    const missingGitHubModel = createIoCapture();
+    const unknownOption = createIoCapture();
+
+    const unsupportedModelExitCode = await runCli(['--model', 'other'], unsupportedModel.io);
+    const missingGitHubModelExitCode = await runCli(['--github-model'], missingGitHubModel.io);
+    const unknownOptionExitCode = await runCli(['--totally-unknown'], unknownOption.io);
+
+    expect(unsupportedModelExitCode).toBe(2);
+    expect(unsupportedModel.stderr.join('')).toContain('Unsupported model: other');
+    expect(missingGitHubModelExitCode).toBe(2);
+    expect(missingGitHubModel.stderr.join('')).toContain('Missing value for --github-model');
+    expect(unknownOptionExitCode).toBe(2);
+    expect(unknownOption.stderr.join('')).toContain('Unknown option: --totally-unknown');
+  });
+
   it('returns success when no patterns are found', async () => {
     const filePath = createProjectFile(
       'clean.html',
@@ -215,5 +281,14 @@ describe('runCli', () => {
 
     expect(exitCode).toBe(0);
     expect(capture.stdout.join('')).toContain('found no dark patterns');
+  });
+
+  it('uses the default CLI IO when none is provided', async () => {
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    const exitCode = await runCli(['--help']);
+
+    expect(exitCode).toBe(0);
+    expect(stdoutSpy).toHaveBeenCalled();
   });
 });
