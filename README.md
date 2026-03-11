@@ -20,6 +20,7 @@ Anti-Dark Pattern is a production-oriented CI/CD linter for front-end codebases.
 - Produces human-readable text, JSON, or GitHub annotation output.
 - Exits non-zero when violations are found so it can block CI automatically.
 - Uses a deterministic heuristic engine by default, while exposing an engine interface that can be backed by any LLM or model provider.
+- Ships as a root-level GitHub Action with marketplace metadata so teams can use it directly in workflows.
 
 ## Installation
 
@@ -73,11 +74,45 @@ Exit codes:
 | `countdown-urgency` | Detects countdown, scarcity, and urgency prompts. |
 | `obstructive-consent` | Detects hidden reject paths and pre-checked marketing/tracking consent. |
 
-## CI/CD integration
+## Use as a GitHub Action
 
-This repository includes a GitHub Actions workflow that installs dependencies, validates the codebase, builds the CLI, and runs the scanner during pull requests.
+Use the published action directly in another repository:
 
-For another repository, a minimal workflow looks like:
+```yaml
+name: anti-dark-pattern
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erayaha/anti-dark-pattern@v1
+        with:
+          path: src
+          format: github
+```
+
+Optional GitHub Models analysis:
+
+```yaml
+      - uses: erayaha/anti-dark-pattern@v1
+        env:
+          MODELS_TOKEN: ${{ secrets.MODELS_TOKEN }}
+        with:
+          path: src
+          format: github
+          model: github
+          github_model: openai/gpt-5-mini
+```
+
+## CI/CD integration without the marketplace action
+
+If you prefer the CLI directly, a minimal workflow looks like:
 
 ```yaml
 name: anti-dark-pattern
@@ -101,6 +136,8 @@ jobs:
       - run: node dist/src/index.js src --format github
 ```
 
+To stay compatible with GitHub Marketplace publication requirements, this repository keeps the reusable workflow example in the README instead of shipping workflow files in `.github/workflows`.
+
 ## LLM-ready architecture
 
 The default engine is fully deterministic so tests can run end to end without network access or human review. If you want model-based classification, the CLI now supports GitHub Models directly with `--model github` and a `MODELS_TOKEN` environment variable.
@@ -108,6 +145,10 @@ The default engine is fully deterministic so tests can run end to end without ne
 If you want a different provider, implement the `PromptDrivenModel` interface from `/src/engine.ts` and pass a `ModelBackedAnalysisEngine` into `analyzePaths()`.
 
 That design keeps CI reproducible while still supporting GitHub Models, Copilot, OpenAI-compatible endpoints, or any other LLM provider in production environments.
+
+## License
+
+MIT. See `/LICENSE`.
 
 ## Automated test coverage
 

@@ -1,0 +1,27 @@
+name: Erayaha Anti Dark Pattern Linter
+description: Scan front-end code for dark pattern signals and fail CI before deceptive UX ships.
+author: erayaha.ai
+branding:
+  icon: shield
+  color: red
+inputs:
+  path:
+    description: Path to scan for front-end files.
+    required: false
+    default: .
+  format:
+    description: Output format to emit (text, json, or github).
+    required: false
+    default: github
+  rules:
+    description: Optional comma-separated list of rule IDs to run.
+    required: false
+  model:
+    description: Optional analysis model to use. Set to github to enable GitHub Models.
+    required: false
+  github_model:
+    description: Optional GitHub Models model ID override, for example openai/gpt-5-mini.
+    required: false
+runs:
+  using: node20
+  main: dist/src/action.js

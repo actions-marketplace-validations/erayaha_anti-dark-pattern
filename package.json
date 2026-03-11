@@ -2,12 +2,38 @@
   "name": "anti-dark-pattern",
   "version": "1.0.0",
   "description": "Automated CI/CD dark pattern linter for front-end codebases.",
+  "license": "MIT",
+  "author": "erayaha.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/erayaha/anti-dark-pattern.git"
+  },
+  "homepage": "https://github.com/erayaha/anti-dark-pattern#readme",
+  "bugs": {
+    "url": "https://github.com/erayaha/anti-dark-pattern/issues"
+  },
+  "keywords": [
+    "compliance",
+    "dark-patterns",
+    "github-action",
+    "legal-tech",
+    "ux"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "main": "dist/src/index.js",
   "bin": {
     "anti-dark-pattern": "dist/src/index.js"
   },
+  "files": [
+    "LICENSE",
+    "README.md",
+    "action.yml",
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.build.json",
     "lint": "eslint . --ext .ts,.cjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --coverage"
