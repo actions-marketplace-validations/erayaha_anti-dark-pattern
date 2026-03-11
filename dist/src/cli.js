@@ -1,0 +1,185 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.runCli = runCli;
+const analyzer_1 = require("./analyzer");
+const engine_1 = require("./engine");
+const github_models_1 = require("./github-models");
+const rules_1 = require("./rules");
+const HELP_TEXT = `Usage: anti-dark-pattern [options] <path ...>
+
+Options:
+  --format <text|json|github>  Choose output format (default: text)
+  --model <github>             Use an optional AI-backed analysis model
+  --github-model <model-id>    Override the GitHub Models model ID
+  --rules <id,id>              Restrict analysis to specific rule IDs
+  --list-rules                 Print the available rule catalog
+  --help                       Show this help message
+`;
+async function runCli(argv, io = defaultCliIo()) {
+    let parsedArgs;
+    try {
+        parsedArgs = parseArgs(argv);
+    }
+    catch (error) {
+        io.stderr(`${String(error)}\n`);
+        io.stderr(HELP_TEXT);
+        return 2;
+    }
+    if (parsedArgs.showHelp) {
+        io.stdout(HELP_TEXT);
+        return 0;
+    }
+    if (parsedArgs.listRules) {
+        for (const rule of rules_1.DARK_PATTERN_RULES) {
+            io.stdout(`${rule.id}: ${rule.title}\n`);
+        }
+        return 0;
+    }
+    try {
+        const engine = createAnalysisEngine(parsedArgs);
+        const summary = await (0, analyzer_1.analyzePaths)({
+            engine,
+            paths: parsedArgs.paths.length > 0 ? parsedArgs.paths : ['.'],
+            ruleIds: parsedArgs.ruleIds,
+        });
+        writeSummary(summary, parsedArgs.format, io);
+        return summary.findings.length > 0 ? 1 : 0;
+    }
+    catch (error) {
+        io.stderr(`${String(error)}\n`);
+        return 2;
+    }
+}
+function parseArgs(argv) {
+    const parsedArgs = {
+        format: 'text',
+        paths: [],
+        showHelp: false,
+        listRules: false,
+    };
+    for (let index = 0; index < argv.length; index += 1) {
+        const argument = argv[index];
+        if (argument === '--help') {
+            parsedArgs.showHelp = true;
+            continue;
+        }
+        if (argument === '--list-rules') {
+            parsedArgs.listRules = true;
+            continue;
+        }
+        if (argument === '--format') {
+            index += 1;
+            parsedArgs.format = parseFormat(argv[index]);
+            continue;
+        }
+        if (argument.startsWith('--format=')) {
+            parsedArgs.format = parseFormat(argument.slice('--format='.length));
+            continue;
+        }
+        if (argument === '--model') {
+            index += 1;
+            parsedArgs.model = parseModel(argv[index]);
+            continue;
+        }
+        if (argument.startsWith('--model=')) {
+            parsedArgs.model = parseModel(argument.slice('--model='.length));
+            continue;
+        }
+        if (argument === '--github-model') {
+            index += 1;
+            parsedArgs.githubModel = parseRequiredValue('--github-model', argv[index]);
+            continue;
+        }
+        if (argument.startsWith('--github-model=')) {
+            parsedArgs.githubModel = parseRequiredValue('--github-model', argument.slice('--github-model='.length));
+            continue;
+        }
+        if (argument === '--rules') {
+            index += 1;
+            parsedArgs.ruleIds = parseRuleIds(argv[index]);
+            continue;
+        }
+        if (argument.startsWith('--rules=')) {
+            parsedArgs.ruleIds = parseRuleIds(argument.slice('--rules='.length));
+            continue;
+        }
+        if (argument.startsWith('--')) {
+            throw new Error(`Unknown option: ${argument}`);
+        }
+        parsedArgs.paths.push(argument);
+    }
+    return parsedArgs;
+}
+function parseFormat(format) {
+    if (format === 'text' || format === 'json' || format === 'github') {
+        return format;
+    }
+    throw new Error(`Unsupported format: ${String(format)}`);
+}
+function parseModel(model) {
+    if (model === 'github') {
+        return model;
+    }
+    throw new Error(`Unsupported model: ${String(model)}`);
+}
+function parseRuleIds(ruleList) {
+    return parseRequiredValue('--rules', ruleList)
+        .split(',')
+        .map((ruleId) => ruleId.trim())
+        .filter(Boolean);
+}
+function parseRequiredValue(optionName, value) {
+    if (!value) {
+        throw new Error(`Missing value for ${optionName}`);
+    }
+    return value;
+}
+function createAnalysisEngine(parsedArgs) {
+    if (!parsedArgs.model) {
+        return undefined;
+    }
+    const token = process.env.MODELS_TOKEN;
+    if (!token) {
+        throw new Error('Missing MODELS_TOKEN environment variable for --model github');
+    }
+    return new engine_1.ModelBackedAnalysisEngine(new github_models_1.GitHubModelsPromptModel({
+        token,
+        model: parsedArgs.githubModel ?? process.env.GITHUB_MODELS_MODEL,
+    }));
+}
+function writeSummary(summary, format, io) {
+    if (format === 'json') {
+        io.stdout(`${JSON.stringify(summary, null, 2)}\n`);
+        return;
+    }
+    if (format === 'github') {
+        if (summary.findings.length === 0) {
+            io.stdout(`::notice::Scanned ${summary.fileCount} file(s) and found no dark patterns.\n`);
+            return;
+        }
+        for (const finding of summary.findings) {
+            io.stdout(`::${finding.severity} file=${escapeProperty(finding.filePath)},line=${finding.line},col=${finding.column},title=${escapeProperty(finding.ruleId)}::${escapeMessage(finding.message)} Recommendation: ${escapeMessage(finding.recommendation)}\n`);
+        }
+        return;
+    }
+    if (summary.findings.length === 0) {
+        io.stdout(`Scanned ${summary.fileCount} file(s) and found no dark patterns.\n`);
+        return;
+    }
+    io.stdout(`Scanned ${summary.fileCount} file(s) and found ${summary.findings.length} potential dark pattern(s).\n\n`);
+    for (const finding of summary.findings) {
+        io.stdout(`[${finding.severity}] ${finding.ruleId}\n${finding.filePath}:${finding.line}:${finding.column}\n${finding.message}\nRecommendation: ${finding.recommendation}\nEvidence: ${finding.evidence}\n\n`);
+    }
+}
+function escapeProperty(value) {
+    return value.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+}
+function escapeMessage(value) {
+    return escapeProperty(value).replace(/:/g, '%3A').replace(/,/g, '%2C');
+}
+function defaultCliIo() {
+    return {
+        stdout: (message) => process.stdout.write(message),
+        stderr: (message) => process.stderr.write(message),
+    };
+}

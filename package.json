@@ -1,1 +1,50 @@
-{\n  "name": "dark-pattern-linter",\n  "version": "1.0.0",\n  "description": "A CI/CD dark pattern linter for scanning front-end code.",\n  "main": "dist/index.js",\n  "scripts": {\n    "lint": "eslint .",\n    "typecheck": "tsc",\n    "test": "vitest"\n  },\n  "devDependencies": {\n    "eslint": "^8.0.0",\n    "typescript": "^4.0.0",\n    "vitest": "^0.0.0"\n  },\n  "dependencies": {}\n}
+{
+  "name": "anti-dark-pattern",
+  "version": "1.0.0",
+  "description": "Automated CI/CD dark pattern linter for front-end codebases.",
+  "license": "MIT",
+  "author": "erayaha.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/erayaha/anti-dark-pattern.git"
+  },
+  "homepage": "https://github.com/erayaha/anti-dark-pattern#readme",
+  "bugs": {
+    "url": "https://github.com/erayaha/anti-dark-pattern/issues"
+  },
+  "keywords": [
+    "compliance",
+    "dark-patterns",
+    "github-action",
+    "legal-tech",
+    "ux"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "dist/src/index.js",
+  "bin": {
+    "anti-dark-pattern": "dist/src/index.js"
+  },
+  "files": [
+    "LICENSE",
+    "README.md",
+    "action.yml",
+    "dist"
+  ],
+  "scripts": {
+    "build": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.build.json",
+    "lint": "eslint . --ext .ts,.cjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "@typescript-eslint/eslint-plugin": "^8.25.0",
+    "@typescript-eslint/parser": "^8.25.0",
+    "@vitest/coverage-v8": "^3.0.5",
+    "eslint": "^8.57.1",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.5"
+  }
+}
