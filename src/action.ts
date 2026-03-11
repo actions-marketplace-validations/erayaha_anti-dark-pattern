@@ -1,3 +1,6 @@
+import { appendFileSync } from 'node:fs';
+import { EOL } from 'node:os';
+
 import { runCli } from './cli';
 
 export function buildActionArgs(env: NodeJS.ProcessEnv = process.env): string[] {
@@ -25,12 +28,28 @@ export function buildActionArgs(env: NodeJS.ProcessEnv = process.env): string[] 
 }
 
 export function runAction(env: NodeJS.ProcessEnv = process.env): Promise<number> {
-  return runCli(buildActionArgs(env));
+  return runCli(buildActionArgs(env)).then((exitCode) => {
+    setActionOutput('exit_code', String(exitCode), env);
+    return exitCode;
+  });
 }
 
 function normalizeInput(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function setActionOutput(
+  name: string,
+  value: string,
+  env: NodeJS.ProcessEnv = process.env,
+): void {
+  const outputFile = normalizeInput(env.GITHUB_OUTPUT);
+  if (!outputFile) {
+    return;
+  }
+
+  appendFileSync(outputFile, `${name}=${value}${EOL}`);
 }
 
 if (require.main === module) {

@@ -1,3 +1,7 @@
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 describe('action entrypoint', () => {
@@ -62,5 +66,22 @@ describe('action entrypoint', () => {
       '--github-model',
       'openai/gpt-5-mini',
     ]);
+  });
+
+  it('writes the action exit code to GITHUB_OUTPUT when available', async () => {
+    const runCli = vi.fn(async () => 1);
+    vi.doMock('../src/cli', () => ({ runCli }));
+    const temporaryDirectory = mkdtempSync(join(tmpdir(), 'anti-dark-pattern-action-'));
+    const outputPath = join(temporaryDirectory, 'github-output.txt');
+
+    try {
+      const { runAction } = await import('../src/action');
+      const exitCode = await runAction({ GITHUB_OUTPUT: outputPath });
+
+      expect(exitCode).toBe(1);
+      expect(readFileSync(outputPath, 'utf8')).toContain('exit_code=1');
+    } finally {
+      rmSync(temporaryDirectory, { force: true, recursive: true });
+    }
   });
 });

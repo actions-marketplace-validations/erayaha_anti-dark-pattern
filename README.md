@@ -1,12 +1,38 @@
 # Anti-Dark Pattern Linter
 
-Anti-Dark Pattern is a production-oriented CI/CD linter for front-end codebases. It scans UI source files for legally risky dark pattern signals and fails pull requests before deceptive flows ship.
+Anti-Dark Pattern is a production-oriented GitHub Action and CLI for CI/CD dark-pattern detection in front-end codebases. It scans UI source files for legally risky dark pattern signals and fails pull requests before deceptive flows ship.
 
-[![CI](https://github.com/erayaha/anti-dark-pattern/actions/workflows/ci.yml/badge.svg)](https://github.com/erayaha/anti-dark-pattern/actions/workflows/ci.yml)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)
 ![Vitest](https://img.shields.io/badge/Tested%20with-Vitest-6E9F18?logo=vitest&logoColor=white)
 ![ESLint](https://img.shields.io/badge/Linting-ESLint-4B32C3?logo=eslint&logoColor=white)
 ![Yarn](https://img.shields.io/badge/Package%20Manager-Yarn-2C8EBB?logo=yarn&logoColor=white)
+
+Use it as a reusable GitHub Action in your own pipelines, or run the CLI directly in a custom workflow.
+
+## Quick start
+
+Add the action to a repository workflow:
+
+```yaml
+name: anti-dark-pattern
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erayaha/anti-dark-pattern@v1
+        with:
+          path: src
+          format: github
+```
+
+Use `@v1` to follow compatible major releases, or pin an exact tag such as `@v1.0.0` for stricter reproducibility.
 
 ## What it does
 
@@ -22,22 +48,58 @@ Anti-Dark Pattern is a production-oriented CI/CD linter for front-end codebases.
 - Uses a deterministic heuristic engine by default, while exposing an engine interface that can be backed by any LLM or model provider.
 - Ships as a root-level GitHub Action with marketplace metadata so teams can use it directly in workflows.
 
-## Installation
+## Use as a GitHub Action
 
-```bash
-yarn install
+The action is intended for teams that want to add dark-pattern checks to CI/CD with minimal setup.
+
+### Inputs
+
+| Input | Required | Default | Description |
+| --- | --- | --- | --- |
+| `path` | No | `.` | Path to scan for front-end files. |
+| `format` | No | `github` | Output format: `text`, `json`, or `github`. |
+| `rules` | No | all rules | Comma-separated subset of rule IDs to run. |
+| `model` | No | heuristic by omission | Set to `github` to enable GitHub Models-backed analysis. |
+| `github_model` | No | GitHub default | Optional GitHub Models model ID override. |
+
+### Outputs
+
+| Output | Description |
+| --- | --- |
+| `exit_code` | `0` for no findings, `1` when findings are detected, `2` for invalid usage or scan failure. |
+
+Optional GitHub Models analysis:
+
+```yaml
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erayaha/anti-dark-pattern@v1
+        env:
+          MODELS_TOKEN: ${{ secrets.MODELS_TOKEN }}
+        with:
+          path: src
+          format: github
+          model: github
+          github_model: openai/gpt-5-mini
 ```
 
-## Commands
+To stay compatible with GitHub Marketplace publication requirements, this repository keeps the reusable workflow example in the README instead of shipping workflow files in `.github/workflows`.
+
+## CLI usage
+
+If you want the scanner without the reusable action wrapper, you can run the CLI directly.
+
+## Development setup
 
 ```bash
+yarn install --frozen-lockfile
 yarn lint
 yarn typecheck
 yarn test
 yarn build
 ```
-
-## CLI usage
 
 Build the CLI and scan a project:
 
@@ -73,70 +135,6 @@ Exit codes:
 | `hidden-costs` | Detects fee disclosures that appear late in the purchase flow. |
 | `countdown-urgency` | Detects countdown, scarcity, and urgency prompts. |
 | `obstructive-consent` | Detects hidden reject paths and pre-checked marketing/tracking consent. |
-
-## Use as a GitHub Action
-
-Use the published action directly in another repository:
-
-```yaml
-name: anti-dark-pattern
-
-on:
-  pull_request:
-  push:
-    branches: [main]
-
-jobs:
-  scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: erayaha/anti-dark-pattern@v1
-        with:
-          path: src
-          format: github
-```
-
-Optional GitHub Models analysis:
-
-```yaml
-      - uses: erayaha/anti-dark-pattern@v1
-        env:
-          MODELS_TOKEN: ${{ secrets.MODELS_TOKEN }}
-        with:
-          path: src
-          format: github
-          model: github
-          github_model: openai/gpt-5-mini
-```
-
-## CI/CD integration without the marketplace action
-
-If you prefer the CLI directly, a minimal workflow looks like:
-
-```yaml
-name: anti-dark-pattern
-
-on:
-  pull_request:
-  push:
-    branches: [main]
-
-jobs:
-  scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: yarn
-      - run: yarn install --frozen-lockfile
-      - run: yarn build
-      - run: node dist/src/index.js src --format github
-```
-
-To stay compatible with GitHub Marketplace publication requirements, this repository keeps the reusable workflow example in the README instead of shipping workflow files in `.github/workflows`.
 
 ## LLM-ready architecture
 

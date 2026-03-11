@@ -10,18 +10,21 @@ inputs:
     required: false
     default: .
   format:
-    description: Output format to emit (text, json, or github).
+    description: Output format to emit (text, json, or github). GitHub annotations are recommended in CI.
     required: false
     default: github
   rules:
     description: Optional comma-separated list of rule IDs to run.
     required: false
   model:
-    description: Optional analysis model to use. Set to github to enable GitHub Models.
+    description: Optional model adapter. Omit this input to use the default deterministic heuristic engine, or set it to github to enable GitHub Models.
     required: false
   github_model:
-    description: Optional GitHub Models model ID override, for example openai/gpt-5-mini.
+    description: Optional GitHub Models model ID override, for example openai/gpt-5-mini. Requires model=github.
     required: false
+outputs:
+  exit_code:
+    description: Exit code from the scan. 0 means no findings, 1 means findings were detected, and 2 means invalid usage or scan failure.
 runs:
   using: node20
   main: dist/src/action.js
