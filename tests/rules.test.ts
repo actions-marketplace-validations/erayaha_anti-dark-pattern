@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { DARK_PATTERN_RULES, getRuleById, selectRules } from '../src/rules';
@@ -76,6 +79,67 @@ describe('dark pattern rules', () => {
     expect(findings[0]?.message).toContain('rejection appears hidden');
   });
 
+  it('detects confirm shaming — "no thanks, I don\'t want" variant', () => {
+    const findings = findRule('confirm-shaming').detect(
+      '<span>No thanks, I don\'t want FREE delivery and other benefits</span>',
+      '/tmp/confirm-shaming-want.html',
+    );
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.ruleId).toBe('confirm-shaming');
+  });
+
+  it('detects confirm shaming — cancel and lose all benefits', () => {
+    const findings = findRule('confirm-shaming').detect(
+      '<span>Cancel membership and lose all benefits</span>',
+      '/tmp/confirm-shaming-lose.html',
+    );
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.ruleId).toBe('confirm-shaming');
+  });
+
+  it('detects roach-motel forced survey gate', () => {
+    const findings = findRule('roach-motel').detect(
+      "<h2>Before you go, tell us why you're leaving</h2>",
+      '/tmp/roach-motel.html',
+    );
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.ruleId).toBe('roach-motel');
+    expect(findings[0]?.message).toContain('survey');
+  });
+
+  it('detects trick-question read-only pre-checked checkbox', () => {
+    const jsxContent = `
+      <input
+        type="checkbox"
+        checked={selectAll}
+        readOnly
+        style={{ marginRight: 8 }}
+      />
+    `;
+    const findings = findRule('trick-question').detect(jsxContent, '/tmp/trick-question.jsx');
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.ruleId).toBe('trick-question');
+    expect(findings[0]?.message).toContain('read-only');
+  });
+
+  it('does not flag interactive (non-readOnly) checkboxes as trick-question', () => {
+    const jsxContent = `
+      <input
+        type="checkbox"
+        checked={selectAll}
+        onChange={(e) => setSelectAll(e.target.checked)}
+        style={{ marginRight: 8 }}
+      />
+    `;
+    const findings = findRule('trick-question').detect(jsxContent, '/tmp/clean-checkbox.jsx');
+
+    expect(findings).toHaveLength(0);
+  });
+
   it('ignores neutral UI copy', () => {
     const findings = DARK_PATTERN_RULES.flatMap((rule) =>
       rule.detect(
@@ -99,5 +163,33 @@ describe('dark pattern rules', () => {
 
   it('throws when selecting an unknown rule', () => {
     expect(() => selectRules(['does-not-exist'])).toThrow('Unknown rule: does-not-exist');
+  });
+});
+
+describe('example fixture detection', () => {
+  const examplesDir = join(__dirname, '..', 'examples');
+
+  it('flags confirm-shaming and roach-motel in the Amazon Prime Cancellation example', () => {
+    const content = readFileSync(
+      join(examplesDir, 'amazon-prime-cancellation', 'AmazonPrimeCancellation.jsx'),
+      'utf8',
+    );
+
+    const confirmShaming = findRule('confirm-shaming').detect(content, 'AmazonPrimeCancellation.jsx');
+    const roachMotel = findRule('roach-motel').detect(content, 'AmazonPrimeCancellation.jsx');
+
+    expect(confirmShaming.length).toBeGreaterThanOrEqual(2);
+    expect(roachMotel.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('flags trick-question in the LinkedIn Add Connections example', () => {
+    const content = readFileSync(
+      join(examplesDir, 'linkedin-add-connections', 'LinkedInAddConnections.jsx'),
+      'utf8',
+    );
+
+    const trickQuestion = findRule('trick-question').detect(content, 'LinkedInAddConnections.jsx');
+
+    expect(trickQuestion.length).toBeGreaterThanOrEqual(1);
   });
 });

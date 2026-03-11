@@ -5,7 +5,7 @@ const analyzer_1 = require("./analyzer");
 const engine_1 = require("./engine");
 const github_models_1 = require("./github-models");
 const rules_1 = require("./rules");
-const HELP_TEXT = `Usage: anti-dark-pattern [options] <path ...>
+const HELP_TEXT = `Usage: anti-dark-pattern [scan] [options] <path ...>
 
 Options:
   --format <text|json|github>  Choose output format (default: text)
@@ -57,8 +57,11 @@ function parseArgs(argv) {
         showHelp: false,
         listRules: false,
     };
-    for (let index = 0; index < argv.length; index += 1) {
-        const argument = argv[index];
+    // Strip the optional 'scan' subcommand so that both
+    // `anti-dark-pattern <path>` and `anti-dark-pattern scan <path>` work.
+    const args = argv[0] === 'scan' ? argv.slice(1) : argv;
+    for (let index = 0; index < args.length; index += 1) {
+        const argument = args[index];
         if (argument === '--help') {
             parsedArgs.showHelp = true;
             continue;
@@ -69,7 +72,7 @@ function parseArgs(argv) {
         }
         if (argument === '--format') {
             index += 1;
-            parsedArgs.format = parseFormat(argv[index]);
+            parsedArgs.format = parseFormat(args[index]);
             continue;
         }
         if (argument.startsWith('--format=')) {
@@ -78,7 +81,7 @@ function parseArgs(argv) {
         }
         if (argument === '--model') {
             index += 1;
-            parsedArgs.model = parseModel(argv[index]);
+            parsedArgs.model = parseModel(args[index]);
             continue;
         }
         if (argument.startsWith('--model=')) {
@@ -87,7 +90,7 @@ function parseArgs(argv) {
         }
         if (argument === '--github-model') {
             index += 1;
-            parsedArgs.githubModel = parseRequiredValue('--github-model', argv[index]);
+            parsedArgs.githubModel = parseRequiredValue('--github-model', args[index]);
             continue;
         }
         if (argument.startsWith('--github-model=')) {
@@ -96,7 +99,7 @@ function parseArgs(argv) {
         }
         if (argument === '--rules') {
             index += 1;
-            parsedArgs.ruleIds = parseRuleIds(argv[index]);
+            parsedArgs.ruleIds = parseRuleIds(args[index]);
             continue;
         }
         if (argument.startsWith('--rules=')) {

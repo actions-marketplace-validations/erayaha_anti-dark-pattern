@@ -21,7 +21,7 @@ interface ParsedArgs {
   listRules: boolean;
 }
 
-const HELP_TEXT = `Usage: anti-dark-pattern [options] <path ...>
+const HELP_TEXT = `Usage: anti-dark-pattern [scan] [options] <path ...>
 
 Options:
   --format <text|json|github>  Choose output format (default: text)
@@ -82,8 +82,12 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     listRules: false,
   };
 
-  for (let index = 0; index < argv.length; index += 1) {
-    const argument = argv[index];
+  // Strip the optional 'scan' subcommand so that both
+  // `anti-dark-pattern <path>` and `anti-dark-pattern scan <path>` work.
+  const args = argv[0] === 'scan' ? argv.slice(1) : argv;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
 
     if (argument === '--help') {
       parsedArgs.showHelp = true;
@@ -97,7 +101,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 
     if (argument === '--format') {
       index += 1;
-      parsedArgs.format = parseFormat(argv[index]);
+      parsedArgs.format = parseFormat(args[index]);
       continue;
     }
 
@@ -108,7 +112,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 
     if (argument === '--model') {
       index += 1;
-      parsedArgs.model = parseModel(argv[index]);
+      parsedArgs.model = parseModel(args[index]);
       continue;
     }
 
@@ -119,7 +123,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 
     if (argument === '--github-model') {
       index += 1;
-      parsedArgs.githubModel = parseRequiredValue('--github-model', argv[index]);
+      parsedArgs.githubModel = parseRequiredValue('--github-model', args[index]);
       continue;
     }
 
@@ -133,7 +137,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 
     if (argument === '--rules') {
       index += 1;
-      parsedArgs.ruleIds = parseRuleIds(argv[index]);
+      parsedArgs.ruleIds = parseRuleIds(args[index]);
       continue;
     }
 
