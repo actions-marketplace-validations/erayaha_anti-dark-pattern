@@ -1,12 +1,14 @@
 /**
+ * EXAMPLE FILE — FOR DARK PATTERN DETECTION TESTING ONLY
  * DARK PATTERN CASE #2: LinkedIn "Add Connections" Email Harvesting
  * ──────────────────────────────────────────────────────────────────
  * Legal Action  : Perkins v. LinkedIn Corp. (2015) — $13M settlement
  * Pattern Types : hidden-subscription, trick-question, visual-interference, roach-motel
  * Source        : Case No. 13-cv-04303-LHK (N.D. Cal.) | molfar.io/blog/dark-patterns
  *
- * LinkedIn imported users' email contacts without clear disclosure,
- * then sent repeated invitation emails to those contacts.
+ * This is a reconstructed illustration of the anti-pattern documented in
+ * Perkins v. LinkedIn Corp. (2015) and is not affiliated with or endorsed by LinkedIn.
+ * No LinkedIn code, assets, or proprietary material is used.
  * Dark Patterns annotated with: [DP: <type>] comments
  */
 
